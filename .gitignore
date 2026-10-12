@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+artifacts/
+tmp/
+# Local seminar material and screenshots containing manuscript excerpts
+tests/fixtures/seminar-preview.png
+between-seminar*.json
+.DS_Store
+Thumbs.db

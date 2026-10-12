@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><title>Google 오디오 로컬 검사</title>
+<style>body{font:16px system-ui;max-width:760px;margin:60px auto;padding:24px}button{padding:14px}pre{padding:20px;background:#eff6f2;white-space:pre-wrap}</style>
+<h1>Google 오디오 로컬 검사</h1>
+<p>합성 신호만 사용합니다. 실제 마이크·API·스피커 재생은 사용하지 않습니다.</p>
+<button id="test">오디오 형식 검사</button><pre id="result">대기 중</pre>
+<script type="module">
+document.querySelector('#test').onclick = async () => {
+  const output = document.querySelector('#result');
+  let context, source, worklet, timeout;
+  try {
+    output.textContent = '검사 중';
+    context = new AudioContext({ sampleRate: 16000 });
+    await context.resume();
+    await context.audioWorklet.addModule('/google-pcm-worklet.js');
+    worklet = new AudioWorkletNode(context, 'between-google-pcm');
+    source = context.createOscillator();
+    source.frequency.value = 440;
+    source.connect(worklet); worklet.connect(context.destination);
+    const packet = new Promise((resolve, reject) => {
+      timeout = setTimeout(() => reject(new Error('오디오 처리 응답 시간 초과')), 4000);
+      worklet.port.onmessage = ({data}) => { if (data.type === 'audio') resolve(data.buffer); };
+    });
+    worklet.port.postMessage('resume'); source.start();
+    const audio = new DataView(await packet);
+    let peak = 0;
+    for (let index = 0; index < audio.byteLength; index += 2) peak = Math.max(peak, Math.abs(audio.getInt16(index, true)));
+    const passed = context.sampleRate === 16000 && audio.byteLength === 3200 && peak > 0;
+    output.textContent = JSON.stringify({ passed, sampleRate: context.sampleRate, bytesPerFrame: audio.byteLength, samplesPerFrame: audio.byteLength / 2, nonSilentInput: peak > 0, microphoneUsed: false, apiCalled: false }, null, 2);
+  } catch (error) { output.textContent = `실패: ${error.message}`; }
+  finally { clearTimeout(timeout); source?.stop(); source?.disconnect(); worklet?.disconnect(); await context?.close(); }
+};
+</script></html>
