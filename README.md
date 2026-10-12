@@ -92,13 +92,34 @@ npm start
 
 | 공급자 | 필요한 설정 | 구현 방식 |
 | --- | --- | --- |
-| Microsoft Azure | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` | 브라우저 Speech SDK 연속 번역. 서버가 단기 토큰을 발급하고 8분마다 갱신 |
-| OpenAI | `OPENAI_API_KEY` | `gpt-realtime-translate` 전용 번역 세션 + WebRTC. 서버에서 단기 client secret 발급 |
+| OpenAI | `OPENAI_API_KEY` | 빠른 통역은 `gpt-realtime-translate` + WebRTC. 원고 참고 방식은 별도 음성 인식·텍스트 번역 사용 |
 | Google | `GOOGLE_API_KEY` (또는 `GEMINI_API_KEY`) | `gemini-3.5-live-translate-preview` + Gemini Live API v1beta WebSocket. 서버에서 1회용 단기 토큰 발급 |
+| Microsoft Azure | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` | 브라우저 Speech SDK 연속 번역. 서버가 단기 토큰을 발급하고 8분마다 갱신 |
 
 Microsoft에는 **Speech** 리소스가 필요합니다. 텍스트 Translator 키와 혼동하지 마세요. 리전은 리소스가 실제 배포된 값(예: `koreacentral`)을 사용합니다. 현재 Azure 구현은 일반 퍼블릭 클라우드의 **리전 엔드포인트** 기준이며 사설 엔드포인트·Entra 인증은 구현하지 않았습니다.
 
-OpenAI는 입력 언어를 자동 인식합니다. 화면의 ‘말하는 언어’는 OpenAI 모드에서 표시용이며, Microsoft에서는 실제 음성 인식 언어 설정으로 사용합니다. 모델 접근 권한과 언어 지원은 계정 및 서비스에서 확인해야 합니다. OpenAI 통역 서비스가 반환하는 음성은 재생하지 않지만, 음성 출력의 생성·과금이 없어지는 것은 아닙니다.
+OpenAI 빠른 통역과 Google은 입력 언어를 자동 인식합니다. OpenAI의 설교 정확도·세미나 방식과 Microsoft에서는 선택한 ‘말하는 언어’를 음성 인식 설정에 반영합니다. 모델 접근 권한과 언어 지원은 계정 및 서비스에서 확인해야 합니다. OpenAI 빠른 통역 서비스가 반환하는 음성은 재생하지 않지만, 음성 출력의 생성·과금이 없어지는 것은 아닙니다.
+
+### OpenAI 설정
+
+1. [OpenAI Platform](https://platform.openai.com/)에 로그인하고 사용할 프로젝트를 선택합니다. [API Keys](https://platform.openai.com/api-keys)에서 API 키를 생성합니다. 발급 절차는 [공식 OpenAI 시작 안내](https://developers.openai.com/api/docs/quickstart#create-and-export-an-api-key)를 참고하세요.
+2. 프로젝트의 API 사용을 위한 결제·사용 한도와 필요한 모델의 접근 권한을 확인합니다. 앱의 ‘설정됨’ 표시는 키 입력 여부만 확인하며, 실제 연결 성공을 보장하지 않습니다.
+3. 프로젝트 폴더의 `.env`에서 아래 항목을 입력하거나 수정합니다. 같은 변수 이름을 여러 번 추가하지 말고 기존 값을 바꾸세요. 실제 키는 `.env.example`이나 GitHub에 넣지 않습니다.
+
+```dotenv
+OPENAI_API_KEY=발급받은_API_키
+# 빠른 통역 모델 · 선택 항목, 생략 시 아래 모델 사용
+OPENAI_TRANSLATION_MODEL=gpt-realtime-translate
+# 설교 정확도·세미나 텍스트 번역 모델 · 선택 항목
+OPENAI_SERMON_TEXT_MODEL=gpt-5.4-mini-2026-03-17
+```
+
+4. 처음 실행한다면 `npm run dev`로 서버를 시작합니다. 이미 실행 중이고 키·모델 설정만 바꿨다면 **연결 설정 → 설정 다시 확인**을 누릅니다. 진행 중인 통역은 종료하고 새 연결을 시작해야 변경된 값이 적용됩니다.
+5. **OpenAI Realtime**을 선택하고 말하는 언어·번역 언어·오디오 입력을 정합니다. **통역 방식**에서 빠른 통역, 설교 정확도, 세미나-원고제공방식 중 원하는 방식을 선택한 뒤 **통역 시작**을 누르고 마이크 권한을 허용합니다.
+
+세 방식은 같은 `OPENAI_API_KEY`를 사용합니다. 빠른 통역에는 `gpt-realtime-translate` 접근 권한이 필요하며, 설교 정확도·세미나 방식에는 `gpt-live-transcribe` 음성 인식과 설정된 Responses 텍스트 모델의 접근 권한이 필요합니다. `OPENAI_TRANSLATION_MODEL`은 빠른 통역에만, `OPENAI_SERMON_TEXT_MODEL`은 원고 참고 방식의 텍스트 번역에만 적용됩니다. 모델 이름은 이 앱의 기본값이므로 임의로 다른 모델을 입력하면 API 호환성 오류가 날 수 있습니다.
+
+연결 실패 시에는 키가 올바른 프로젝트의 유효한 키인지, API 사용 한도·잔액과 모델 접근 권한이 있는지 확인하세요. 변수 이름은 **`OPENAI_API_KEY`**이며 `OPEN_API_KEY`가 아닙니다. 원고 참고 방식의 준비 절차는 아래 [세미나 사용법](#세미나-원고제공방식)을 참고하세요.
 
 ### Google 설정
 
@@ -119,6 +140,25 @@ GOOGLE_TRANSLATION_MODEL=gemini-3.5-live-translate-preview
 Google 키는 서버의 공식 Google Gen AI SDK에서만 사용합니다. 브라우저에는 번역 모델·출력 언어·원문/번역 수신 설정이 고정된 단기 토큰만 전달합니다(새 연결 시작 1분 이내, 토큰 최대 30분, 최초 사용 1회). 이 토큰 자체도 자격 증명이므로 개발자 도구·네트워크 로그를 공유하지 마세요. 마이크는 AudioWorklet으로 16 kHz 모노 PCM16, 100 ms 단위로 전송합니다. 음성 출력은 재생하지 않고 자막만 표시하지만 API의 음성 생성·과금까지 제거되는 것은 아닙니다.
 
 **Google 연결 제한:** 현재 자동 세션 재개는 구현하지 않았습니다. Google이 연결 종료 예고(`goAway`)를 보내면 화면에 알리고, 연결이 종료되면 마이크를 해제합니다. 서비스의 연결 시간 제한이 토큰 유효기간보다 짧을 수 있으므로 긴 설교·강의에서는 제한 발생 시 통역을 다시 시작해야 합니다. 종료 때에는 남은 오디오를 전송하고 마지막 자막을 최대 5초간 기다립니다. 장시간 연속 운영과 실제 언어쌍 품질은 현장 테스트가 필요합니다.
+
+### Microsoft Azure Speech 설정
+
+1. [Azure Portal](https://portal.azure.com/)에 로그인하고 사용할 Azure 구독을 선택합니다. **Speech(음성)** 리소스를 생성합니다. 리소스 생성과 키 확인은 [Microsoft 음성 번역 시작 안내](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/get-started-speech-translation)를 참고하세요. 텍스트 전용 Translator 리소스의 키는 이 앱에서 사용하는 Speech 키와 다릅니다.
+2. 생성한 Speech 리소스의 **키 및 엔드포인트(Keys and Endpoint)**에서 키와 리전(지역)을 확인합니다. 리전은 반드시 해당 키가 속한 리소스의 실제 값이어야 합니다.
+3. 프로젝트 폴더의 `.env`에서 아래 두 값을 입력하거나 수정합니다. 기존 OpenAI·Google 설정은 유지해도 됩니다.
+
+```dotenv
+AZURE_SPEECH_KEY=발급받은_Speech_리소스_키
+# 예시입니다. 실제 Speech 리소스의 리전으로 바꾸세요.
+AZURE_SPEECH_REGION=koreacentral
+```
+
+4. 처음에는 `npm run dev`로 서버를 실행합니다. 실행 중 키·리전만 변경했다면 **연결 설정 → 설정 다시 확인**을 누르고 통역을 새로 시작합니다.
+5. **Microsoft Azure Speech**를 선택하고 **말하는 언어**, **번역 언어**, **오디오 입력**을 정합니다. **통역 시작**을 누른 뒤 마이크 권한을 허용하고 원문·번역 자막을 확인합니다. 말하는 언어는 실제 발표자의 언어와 맞추세요.
+
+이 앱은 `AZURE_SPEECH_KEY`와 `AZURE_SPEECH_REGION`으로 지역별 엔드포인트를 구성하므로 엔드포인트 URL을 별도로 입력하지 않습니다. `AZURE_SPEECH_REGION`에는 `https://...` 주소나 지역의 한글 이름 대신 `koreacentral` 같은 리전 코드를 넣습니다. Microsoft 예제의 `SPEECH_KEY`와 달리 **이 앱의 변수 이름은 `AZURE_SPEECH_KEY`**입니다.
+
+키·리전 조합이 맞지 않거나 Speech 리소스가 아닌 키를 사용하면 연결에 실패할 수 있습니다. 구독 상태·할당량과 선택 언어 지원도 확인하세요. 현재 Azure 경로는 빠른 통역용이며, OpenAI 전용인 원고·용어집 참고 기능은 적용되지 않습니다. 리전 엔드포인트 기반의 퍼블릭 Azure만 지원하며 Entra ID·사설 엔드포인트 설정은 구현하지 않았습니다.
 
 ## 현장 사용
 
